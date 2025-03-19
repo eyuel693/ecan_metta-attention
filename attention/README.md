@@ -1,144 +1,38 @@
-# ECAN Agents Framework in MeTTa
+# Optimizations and Fixes
 
-A proof-of-concept (POC) for an agent-based system implemented in MeTTa, leveraging a shared MeTTa atomspace for inter-agent communication and knowledge sharing.
+- **Fixed KeyboardInterrupt Handling in ParallelScheduler**: The previous implementation of `run_continuously()` did not properly handle cleanup when interrupted. This led to threads remaining active or in an inconsistent state. The issue was resolved by adding a `finally` block to ensure proper thread cleanup and graceful shutdown when the system is interrupted.
 
-## Overview
+- **Improved Error Handling in AgentObject**: The `__call__` method in `AgentObject` assumed that the `metta` call would always succeed. However, this could cause the program to crash when certain conditions were not met. This was addressed by adding error handling and logging to the `__call__` method, ensuring that failures are captured, logged, and handled gracefully without affecting the overall execution.
 
-This framework provides a way to implement a cognitive controller for ECAN Agents using MeTTa.  Crucially, all agents operate within the **same, shared MeTTa environment (atomspace)**.  This allows agents to directly observe and interact with each other's knowledge and actions. The state within the shared atomspace is preserved until the system is stopped.
+- **Added Synchronization in ParallelScheduler**: To address the concurrent access issue that caused crashes when multiple agents tried to access the shared atomspace simultaneously, synchronization mechanisms were introduced. This ensures that agents do not conflict when accessing shared resources, preventing errors such as "already borrowed: BorrowMutError" in the MeTTa runtime.
 
-## Core Components
-
-### Base Architecture
-
-- `AgentObject`: The foundational class that enables both MeTTa scripts and Python classes to function as agents.  It now takes a shared `MeTTa` instance as an argument.
-- `ParallelScheduler`: Manages the concurrent execution of multiple agents within the shared `MeTTa` environment.
-
-### Agents to be Implemented
-
-1.  **Importance Diffusion Agents**
-    *   `AFImportanceDiffusionAgent`: Implements attentional-focus importance diffusion.
-    *   `WAImportanceDiffusionAgent`: Handles Whole Atomspace importance diffusion.
-
-2.  **Rent Collection Agents**
-    *   `AFRentCollectionAgent`: Manages attentional-focus Rent collection.
-    *   `WARentCollectionAgent`: Manages Whole-atomspace Rent collection.
-
-3.  **Learning and Memory Agents**
-    *   `HebbianCreationAgent`: Manages Hebbian Link creation between atoms.
-    *   `HebbianUpdatingAgent`: Manages updates to Hebbian link weights.
-    *   `ForgettingAgent`: Handles memory decay and cleanup operations.
-
-## Key Features
-
--   **Parallel Execution**: Agents can run concurrently using the `ParallelScheduler`.
--   **Shared Atomspace**: All agents operate within a single, shared `MeTTa` atomspace, enabling direct communication and knowledge sharing.
--   **Stateful**: State is persisted in the shared atomspace throughout the execution of the agents.
--   **Flexible Integration**: Supports both MeTTa and Python-based agent implementations.
-
-## Usage
-
-### Prerequisites
-
-*   Make sure you have hyperon installed
-*   Make sure all the dependency installed
-
-### Registering with Scheduler
-
-```python
-metta = MeTTa() #create metta instance
-scheduler = ParallelScheduler(metta) # Initialize the scheduler with the metta instance
-scheduler.register_agent("agent_id", lambda: AgentObject(metta=metta, ...)) #register the agent using lambda
-metta: a metta instance that created for sharing space
-AgentObject: takes metta instance and can work on the shared space
-lambda: create an anonymous funciton that returns an instance of AgentObject, making sure that all agents are initialized in the same space
-...: all the extra paramaters that required to initialize the agent
-```
-
-### Running Agents
-# Run all agents in parallel
 
 ```
-python3 main.py
+try:
+    print("\nRunning agents in continuous mode. Press Ctrl+C to stop.")
+    scheduler.run_continuously()
+except KeyboardInterrupt:
+    print("\nReceived interrupt signal. Stopping system...")
+finally:
+    # Ensure all threads are cleaned up and the system shuts down gracefully
+    scheduler.cleanup()
+
 ```
 
-# Expected output
+- **AgentObject Synchronization**: In addition to ParallelScheduler synchronization, the `AgentObject` class was modified to include synchronization, further reducing the risk of concurrent access issues.
 
-```
-   Registering agents...
-   Registered agent: AFImportanceDiffusionAgent
-   Registered agent: AFRentCollectionAgent
-   
-   Agent System Ready!
-   
-   Running agents in continuous mode. Press Ctrl+C to stop.
-   
-   Starting continuous agent execution... (Press Ctrl+C to stop)
-   Created new agent: AFImportanceDiffusionAgent
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Created new agent: AFRentCollectionAgent
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFRentCollectionAgent.metta")], [2]]
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFImportanceDiffusionAgent.metta")], [()], [("AFImportanceDiffusionAgent.metta")], [()], [2, 2]]
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFRentCollectionAgent.metta")], [2, 2]]
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFImportanceDiffusionAgent.metta")], [()], [("AFImportanceDiffusionAgent.metta")], [()], [2, 2, 2]]
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFRentCollectionAgent.metta")], [2, 2, 2]]
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFImportanceDiffusionAgent.metta")], [()], [("AFImportanceDiffusionAgent.metta")], [()], [2, 2, 2, 2]]
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Running agent: <class 'agents.agent_base.AgentObject'> from !(import! &self attention:agents:mettaAgents:adder...
-   Execution result for <class 'agents.agent_base.AgentObject'>: [[()], [("AFRentCollectionAgent.metta")], [2, 2, 2, 2]]
+- **Concurrency Optimization**: To prevent contention, we limited the concurrent execution to one agent at a time by setting `max_workers=1`. This was done in combination with adding small delays between agent executions to reduce resource contention and improve the overall stability of the system.
 ```
 
-### Architecture Details
-# Agent Lifecycle
- * Initialization: A single MeTTa instance is created.
+class AgentObject:
+    def __call__(self):
+        try:
+            # Attempt to call the metta method
+            self.metta.some_method()
+        except Exception as e:
+            # Log the error and provide useful debug information
+            print(f"Error in AgentObject __call__: {e}")
+            # Optionally log to a file for persistent tracking
+            # logger.error(f"Error in AgentObject __call__: {e}")
 
- * Registration: Agents are registered with the ParallelScheduler, receiving a reference to the shared MeTTa instance.
-
- * Execution: Agents run concurrently, interacting with the shared MeTTa atomspace.
-
- * Termination: Agents stop gracefully when the system is interrupted, leaving the state in the shared atomspace intact.
-
- ### Important!!!!
- ### You should structure your Agents in this way
- ### AgentScript.metta
- ### AgentScriptRunner.metta 
-
- - AgentScriptRunner. metta should Import the AgentScript.metta file and run the main function for example (AFImportanceDiffusionAgenT-RUN)
- - And only the AgentScriptRunner.metta should be registered int eh main.py
-
-## Agent Structure (IMPORTANT)
-
-To maintain code organization and reusability, agents should be structured in the following way:
-
-*   `AgentScript.metta`: Contains the core logic and definitions for the agent's functionality.  This file defines the core rules and functions.
-*   `AgentScriptRunner.metta`: Imports `AgentScript.metta` and executes the main function (e.g., `<AgentName>-RUN`). This acts as the entry point for the agent.
-
-**Example:**
-
-Let's say you have an agent named `MyAwesomeAgent`.
-
-1.  `MyAwesomeAgentScript.metta`:
-
-    ```metta
-    ; Define the core logic of MyAwesomeAgent here
-    (= (my-awesome-function)
-      ; ...do something with $x...
-    )
-    ```
-
-2.  `MyAwesomeAgentRunner.metta`:
-
-    ```metta
-    ; Import the agent's core script
-    !(import! &self MyAwesomeAgentScript.metta)
-
-    !(my-awesome-function) ; Run it!
-    ``
-- And do 
-   ```
-    scheduler.register_agent("MyAwesomeAgentRunner", lambda: AgentObject(metta=metta, pathto MyAwesomeAgentRunner.metta"))
-   ```
+```

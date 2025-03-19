@@ -51,3 +51,7 @@ class ParallelScheduler:
 
         except KeyboardInterrupt:
             print("\nReceived interrupt signal. Stopping agents...")
+        finally:
+        # Make sure to shutdown the executor and clean up the threads
+            executor.shutdown(wait=True)
+            print("\nThreads cleaned up, system shutting down.")

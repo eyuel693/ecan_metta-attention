@@ -1,4 +1,4 @@
-(: filter (-> Expression (-> $t Bool) Expression))
+z(: filter (-> Expression (-> $t Bool) Expression))
 (= (filter $list $predicate)
    (if (== $list ())
     ()

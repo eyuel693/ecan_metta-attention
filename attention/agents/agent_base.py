@@ -148,11 +148,18 @@ class AgentObject:
                 self._metta.space().add_atom(self._code)
 
     def __call__(self, atom):
+    
+        """Calls the agent and evaluates the atom."""
         if self._unwrap or self._metta is None:
             raise NotImplementedError(
                 f"__call__ for {self.__class__.__name__} should be defined"
             )
-        return self._metta.evaluate_atom(atom)
+        try:
+            return self._metta.evaluate_atom(atom)
+        except Exception as e:
+            print(f"Error while calling agent {self.name()} with atom {atom}: {e}")
+            return None
+
 
     def is_daemon(self):
         return hasattr(self, 'daemon') and self.daemon is True
