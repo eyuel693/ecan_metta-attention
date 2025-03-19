@@ -1,33 +1,38 @@
-# Economic Attention Networks (ECAN)
+# Optimizations and Fixes
 
-- This repository contains MeTTa code for [attention](https://github.com/singnet/attention) codebase port/re-implementation.
+- **Fixed KeyboardInterrupt Handling in ParallelScheduler**: The previous implementation of `run_continuously()` did not properly handle cleanup when interrupted. This led to threads remaining active or in an inconsistent state. The issue was resolved by adding a `finally` block to ensure proper thread cleanup and graceful shutdown when the system is interrupted.
 
-## Introduction
+- **Improved Error Handling in AgentObject**: The `__call__` method in `AgentObject` assumed that the `metta` call would always succeed. However, this could cause the program to crash when certain conditions were not met. This was addressed by adding error handling and logging to the `__call__` method, ensuring that failures are captured, logged, and handled gracefully without affecting the overall execution.
 
-- ECAN(Economic Attention Network) is a general term for the way that Attentional dynamics (centrally, the Competition for Attention) is carried out within OpenCogPrime.
-
-- Each Atom has an Attention Value attached to it. The process of updating these values is carried out according to nonlinear dynamical equations that are derived based on "artificial economics," utilizing two separate "currencies," one for `Short Term Importance (STI)` and one for `Long Term Importance (LTI)`.
-
-- One aspect of these equations is a form of `Hebbian Learning:` Atoms called `HebbianLinks` record which Atoms were habitually used together in the past, and when it occurred that Atom A's utilization appeared to play a role in causing Atom B's utilization. Then, these HebbianLinks are used to guide the flow of currency between Atoms: `B` gives `A` some money if `B` thinks that this money will help `A` to get used, and that this utilization will help `B` to get used.
+- **Added Synchronization in ParallelScheduler**: To address the concurrent access issue that caused crashes when multiple agents tried to access the shared atomspace simultaneously, synchronization mechanisms were introduced. This ensures that agents do not conflict when accessing shared resources, preventing errors such as "already borrowed: BorrowMutError" in the MeTTa runtime.
 
 
-- Very roughly speaking, these dynamical equations play a similar role to that played by `activation-spreading` in Neural Network AI systems.
+```
+try:
+    print("\nRunning agents in continuous mode. Press Ctrl+C to stop.")
+    scheduler.run_continuously()
+except KeyboardInterrupt:
+    print("\nReceived interrupt signal. Stopping system...")
+finally:
+    # Ensure all threads are cleaned up and the system shuts down gracefully
+    scheduler.cleanup()
 
-## Running the Code
+```
 
-- Make sure to install MeTTa `v0.2.1` following the instruction on the [hyperon-experimental](https://github.com/trueagi-io/hyperon-experimental) repository.
-- For windows users, an alternative way of running MeTTa can be using the [metta-run](https://github.com/iCog-Labs-Dev/metta-prebuilt-binary) binary.
+- **AgentObject Synchronization**: In addition to ParallelScheduler synchronization, the `AgentObject` class was modified to include synchronization, further reducing the risk of concurrent access issues.
 
+- **Concurrency Optimization**: To prevent contention, we limited the concurrent execution to one agent at a time by setting `max_workers=1`. This was done in combination with adding small delays between agent executions to reduce resource contention and improve the overall stability of the system.
+```
 
-## Contributing 
+class AgentObject:
+    def __call__(self):
+        try:
+            # Attempt to call the metta method
+            self.metta.some_method()
+        except Exception as e:
+            # Log the error and provide useful debug information
+            print(f"Error in AgentObject __call__: {e}")
+            # Optionally log to a file for persistent tracking
+            # logger.error(f"Error in AgentObject __call__: {e}")
 
-Before you start contributing to this repository, make sure to read the [CONTRIBUTING.md](https://github.com/iCog-Labs-Dev/metta-attention/blob/main/.github/CONTRIBUTING.md) file from our repository
-
-## References
-
-- Original [paper](https://www.researchgate.net/publication/239925326_Economic_Attention_Networks_Associative_Memory_and_Resource_Allocation_for_General_Intelligence)
-
-- [Economic attention allocation](https://wiki.opencog.org/w/Economic_attention_allocation_(Obsolete)) wiki page 
-
-- C++ implementation of [attention](https://github.com/singnet/attention) codebase
-
+```
